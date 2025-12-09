@@ -233,6 +233,13 @@ with tab1:
     - Training kann mehrere Stunden dauern - lass es laufen!
     """)
     
+    st.sidebar.info("""
+    💡 **Cloud-GPU Tipp:**
+    Für schnelleres Training kannst du RunPod oder ähnliche Services nutzen.
+    Das Projekt unterstützt automatisch CUDA (RTX 6000, etc.).
+    Die GPU beschleunigt das Neural Network Training deutlich!
+    """)
+    
     # Option: Bestehendes Modell weiter trainieren
     continue_training = st.checkbox("Bestehendes Modell weiter trainieren?")
     load_model_path = None
@@ -248,9 +255,17 @@ with tab1:
             continue_training = False
 
     if st.button("Start Training"):
-        # Prüfe verfügbare Hardware
-        device = "mps" if torch.backends.mps.is_available() else "cpu"
-        st.info(f"🔧 Hardware: {device.upper()} | {n_envs} parallele Environments")
+        # Prüfe verfügbare Hardware (CUDA > MPS > CPU)
+        if torch.cuda.is_available():
+            device = "cuda"
+            device_name = torch.cuda.get_device_name(0)
+        elif torch.backends.mps.is_available():
+            device = "mps"
+            device_name = "Apple Silicon GPU"
+        else:
+            device = "cpu"
+            device_name = "CPU"
+        st.info(f"🔧 Hardware: {device_name} ({device.upper()}) | {n_envs} parallele Environments")
         
         env = get_vectorized_env(n_envs=n_envs, use_subproc=use_subproc)
         
@@ -277,7 +292,8 @@ with tab1:
                     'CnnPolicy', 
                     env, 
                     verbose=1, 
-                    tensorboard_log=LOG_DIR, 
+                    tensorboard_log=LOG_DIR,
+                    device=device,  # Explizit Device setzen
                     learning_rate=2.5e-4,
                     n_steps=2048,  # Größere Batches für stabileres Lernen
                     batch_size=64,
@@ -293,7 +309,8 @@ with tab1:
                     'CnnPolicy', 
                     env, 
                     verbose=1, 
-                    tensorboard_log=LOG_DIR, 
+                    tensorboard_log=LOG_DIR,
+                    device=device,  # Explizit Device setzen
                     buffer_size=100000,  # Sehr großer Buffer
                     learning_starts=5000,  # Mehr Exploration vor Lernen
                     learning_rate=1e-4,
@@ -308,6 +325,7 @@ with tab1:
                     env, 
                     verbose=1, 
                     tensorboard_log=LOG_DIR,
+                    device=device,  # Explizit Device setzen
                     learning_rate=7e-4,
                     gamma=0.99,
                     n_steps=5,  # Mehr Schritte für bessere Schätzung
